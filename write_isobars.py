@@ -143,9 +143,64 @@ def create_bootstrap_files(direct,name):
 		print "Write tables for JPC = "+jpc[0]+' '+jpc[1]
 		write_cpp_lookup_table(name+'_'+jpc[0]+'_'+jpc[1],write_cpp_isobar(getJPC(jpc[0],data,jpc[1],jpc[2])))
 
+
+def kompleks(strrr):
+	reim = strrr.replace('(','').replace(')','').split(',')
+	return complex(float(reim[0]),float(reim[1]))
+
+
+def get_matrix(path_mixing_matrix,m3pi):
+		matrixx=[]
+		with open(path_mixing_matrix,'r') as matrices: # find the path of the matrix corresponding to the mass bin
+			nextis = False
+			for line in matrices.readlines():
+				if nextis:
+					path_matrix = line.strip()
+					break
+				if float(line.split()[0]) <= m3pi and float(line.split()[1]) > m3pi:
+					nextis=True
+		with open(path_matrix,'r') as matrix:
+			first = True
+			for line in matrix.readlines():
+				if first:
+					first = False
+					startindex = int(line.split()[0])
+					stoppindex = int(line.split()[1])
+				else:
+					valline = [kompleks(chunk) for chunk in line.split()]
+					matrixx.append(valline)
+		return startindex,stoppindex,matrixx
+
+def get_matrix_JPC(sta, sto, ca):
+	JPCS = []
+	with open(ca,'r') as card:
+		nWave = 0
+		for line in card.readlines():
+			if line.strip().startswith("*IWAVENAM"):
+				nWave+=1
+				if nWave >= sta:
+					namoi = line.split("'")[1]
+					jpc = namoi[3:6]
+					M   = namoi[7:8]
+					if 'f0_' in namoi:
+						isob = 'f0_'
+					elif 'rho_' in namoi:
+						isob = 'rho_'
+					else:
+						pass
+#						print namoi
+#						raise Exception # No isobar 
+					JPC = [jpc,M,isob]
+					if not JPC in JPCS:
+						JPCS.append(JPC)
+				if nWave > sto:
+					break
+	return JPCS
+
 def update_bootstrap(direct,datadir="./data/"):
 	"""
 	Updates the bootstrap isobars, taking data from 'direct' and updating the corresponding files in './data/'
+	Works only with one mass bin
 	"""
 	log = open(datadir+'/log','a')
 	log.write(direct+'\n')
@@ -159,9 +214,29 @@ def update_bootstrap(direct,datadir="./data/"):
 			print key_wave,"not in the fit"
 			pass
 	jpcs = []
+	IS_WITH_MATRIX = False
+	for fn in os.listdir(direct):
+		if 'card' in fn:
+			le_card = direct+'/'+fn
+			with open(le_card,'r') as card:
+				for line in card.readlines():
+					print line
+					if "PATH_MIXING_MATRIX" in line:
+						path_mixing_matrix = line.split()[1].replace("'","").replace('"','')
+						print "Mixing matrix found"
+						IS_WITH_MATRIX = True
+						break
+			break
 	for point in data[0]:
 		if not [point[4],point[13],point[14]] in jpcs:
 			jpcs.append([point[4],point[13],point[14]])
+	m3pi_min = data[0][0][0]
+	m3pi_max = data[0][0][1]
+	m3pi = (m3pi_min+m3pi_max)/2
+	if IS_WITH_MATRIX:
+		startindex,stoppindex,matrix = get_matrix(path_mixing_matrix,m3pi)
+		JPCS_matrix = get_matrix_JPC(startindex,stoppindex,le_card)
+	new_file_names = []
 	for jpc in jpcs:
 		only_one = write_cpp_isobar(getJPC(jpc[0],data,jpc[1],jpc[2]))
 		name = get_bootstrap_name(jpc[0],jpc[1],jpc[2])
@@ -172,6 +247,7 @@ def update_bootstrap(direct,datadir="./data/"):
 		im = only_one[3]
 		out_re = open(datadir+'/'+name+'_re.dat','w')
 		out_im = open(datadir+'/'+name+'_im.dat','w')
+		new_file_names.append(name)
 		for i in range(len(re)):
 			intens = 0. #Normalize
 			for j in range(len(re[i])):
@@ -182,6 +258,38 @@ def update_bootstrap(direct,datadir="./data/"):
 				out_im.write(str(im[i][j]/intens)+'   ')
 		out_re.close()
 		out_im.close()
+
+	if IS_WITH_MATRIX:
+		complex_values = []
+		count_index=0
+		index_borders=[0]
+		for jpc in JPCS_matrix:
+			name = get_bootstrap_name(jpc[0],jpc[1],jpc[2])
+			with open(datadir+'/'+name+'_re.dat','r') as reall:
+				with open(datadir+'/'+name+'_im.dat','r') as imagg:
+					ch_re = reall.read().split()
+					ch_im = imagg.read().split()
+					if not len(ch_re) == len(ch_im):
+						raise Exception # Number of values does not match
+					for i in range(len(ch_re)):
+						count_index+=1
+						complex_values.append(complex(float(ch_re[i]),float(ch_im[i])))
+			index_borders.append(count_index)
+		transformed=[complex(0.,0.)]*len(complex_values)
+		pass
+		pass # do rotation here
+		pass
+		for i in range(len(JPCS_matrix)):
+			jpc = JPCS_matrix[i]
+			name = get_bootstrap_name(jpc[0],jpc[1],jpc[2])
+			with open(datadir+'/'+name+'_re.dat','w') as reall:
+				with open(datadir+'/'+'_im.dat','w') as imagg:
+					for j in range(index_borders[i],index_borders[i+1]):
+						reall.write(str(transformed[j].real)+' ')
+						imagg.write(str(transformed[j].imag)+' ')
+
+	for jpc in jpcs:# copy files to the storage
+		name = get_bootstrap_name(jpc[0],jpc[1],jpc[2])
 		i=0
 		while os.path.isfile(datadir+'/'+name+'_re.dat'+str(i)):
 			i+=1
