@@ -17,7 +17,7 @@ loads 'n_iter' iterations for all waves in 'waves' (number may be specified sepa
 """
 canv = Canvas(name = "canv0", title = "PWA")
 
-folder = './data_only_1pp0prhoS/'
+folder = './data_MC_bootstrap_0/'
 
 n_iter = 7
 

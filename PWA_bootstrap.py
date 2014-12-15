@@ -9,6 +9,7 @@ from shutil import rmtree, copyfile
 import numpy as np
 import numpy.linalg as la
 import os
+from write_isobars import update_bootstrap
 
 
 def get_mixing_indices(cardname):
@@ -106,6 +107,9 @@ def get_small_eigenbasis(matrix,minEV = 0.1):
 		if val[i] > minEV:
 			for j in range(dim):
 				basis[i][j] = vec[i,j]
+		else:
+			print "NOTICE:!!!:!!!:!!!:"
+			print "One eigenvector omitted:",val[i]
 	return basis
 
 
@@ -150,13 +154,14 @@ def bootstrap_step(
 				bs_path = path_bootstrap,
 				cardfolder = cardfolder)
 	
-
+	cardname = card_simple_basis.replace('_sim','')
 	matrix_min, matrix_max = get_mixing_indices(cardfolder+'/'+card_simple_basis)
 	print "Mixing indices are:",matrix_min,matrix_max
 
 	matrix_folder  = target+'/'+name+'/matrix'
+	ACUTALLY_FIT = False
 	if startStage ==0: # Add creating the matrix files as first stage
-		if False: # le flage for le debuge
+		if ACUTALLY_FIT: # le flage for le debuge
 			perform_PWA(
 				card_simple_basis,
 				name+'_sim',		# Name of the fit
@@ -193,7 +198,6 @@ def bootstrap_step(
 		pathFile = create_matrix_files(float(mMin),float(mMax),float(pwaBinWidth),simIntDir,matrix_folder,matrix_min, matrix_max)
 		if cleanupSim:
 			rmtree(target+'/'+name+"_sim")
-		cardname = card_simple_basis.replace('_sim','')
 		with open(cardfolder+'/'+cardname,'w') as outoutout:
 			with open(cardfolder+'/'+card_simple_basis,'r') as ininin:
 				for line in ininin.readlines():
@@ -202,48 +206,51 @@ def bootstrap_step(
 						outoutout.write('USERDEP_AMP\n')
 						outoutout.write("PATH_MIXING_MATRIX '"+pathFile+"'\n")
 	if maxStage>0 and proceedStages:
-		perform_PWA(
-			cardname,
-			name,			# Name of the fit
-			mMin,			# Lower mass Limit
-			mMax,			# Upper mass Limit
-			tBins,			# t' bins
-			seeds,			# seeds
-			startStage,		# Stage to start at
-			maxStage,		# Final Stage
-			proceedStages,		# Flag to proceed after stages
-			maxResubmit,		# Number of maximum resubmits
-			cleanupWramp,		# Clean
-			cleanupLog,		#	up
-			cleanupFit,		#
-			cleanupInt,		#		flags
-			intBinWidth,		# Bin width for integrals
-			pwaBinWidth,		# Bin width for PWA
-			target,			# Target folder
-			cardfolder,		# Folder with card
-			intSource,		# Source for integrals
-			pwaSource,		# Source for PWA (events)
-			cleanupCore,	# Cleanupt core files
-			MC_Fitlse,		# Flag if fit to MC events
-			treename,	# Gives the name of the ROOT tree in thr input files Standard name, if none
-			wrampmode,	# Wrampmode, only used, if wramp-files are inclomplete. 
-			COMPENSATE_AMP,	# Compensate_amp flag in the card
-			PRINT_CMD_ONLY,	# Flag to print submit commends rather than executing them
-		)
+		if ACUTALLY_FIT:
+			perform_PWA(
+				cardname,
+				name,			# Name of the fit
+				mMin,			# Lower mass Limit
+				mMax,			# Upper mass Limit
+				tBins,			# t' bins
+				seeds,			# seeds
+				max(startStage,1),	# Stage to start at
+				maxStage,		# Final Stage
+				proceedStages,		# Flag to proceed after stages
+				maxResubmit,		# Number of maximum resubmits
+				cleanupWramp,		# Clean
+				cleanupLog,		#	up
+				cleanupFit,		#
+				cleanupInt,		#		flags
+				intBinWidth,		# Bin width for integrals
+				pwaBinWidth,		# Bin width for PWA
+				target,			# Target folder
+				cardfolder,		# Folder with card
+				intSource,		# Source for integrals
+				pwaSource,		# Source for PWA (events)
+				cleanupCore,		# Cleanupt core files
+				MC_Fit,			# Flag if fit to MC events
+				treename,		# Gives the name of the ROOT tree in thr input files Standard name, if none
+				wrampmode,		# Wrampmode, only used, if wramp-files are inclomplete. 
+				COMPENSATE_AMP,		# Compensate_amp flag in the card
+				PRINT_CMD_ONLY,		# Flag to print submit commends rather than executing them
+			)
+	return target+'/'+name+'/fit/'+tBin[0]+'-'+tBin[1]+'/'
 
 
 if __name__ == "__main__":
-	bootstrap_step(
+	path_bootstrap = '/nfs/hicran/project/compass/analysis/fkrinner/fkrinner/trunk/massDependentFit/scripts/bootstrap/data_PWA_bs_test'
+	bootstrap_result = bootstrap_step(
 			modestring		=	'ddiiiiiii',
 			name			=	'PWA_bs_test',
-			path_bootstrap		=	'/nfs/hicran/project/compass/analysis/fkrinner/fkrinner/trunk/massDependentFit/scripts/bootstrap/data_PWA_bs_test',
+			path_bootstrap		=	path_bootstrap,
 			template		=	'template_bootstrap_MC.dat',
 			mMin			=	'1.50',
 			mMax			=	'1.54',
 			tBin			=	['0.14077','0.19435'],
 			seeds			=	['12345'],
 			startStage		=	0,
-			maxStage		=	0,
+			maxStage		=	5,
 			proceedStages		=	True,
 			maxResubmit		=	7,
 			cleanupWramp		=	True,
@@ -263,5 +270,7 @@ if __name__ == "__main__":
 			wrampmode 		= 	False,	
 			COMPENSATE_AMP		= 	'0',
 			PRINT_CMD_ONLY		= 	False
-		)
+	)
+	upadte_bootstrap(bootstrap_result,path_bootstrap)
+
 
