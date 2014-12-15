@@ -109,7 +109,7 @@ else
 	((nErr+=1))
 fi
 
-rm bestFits.txt
+rm -f bestFits.txt
 cd /nfs/hicran/project/compass/analysis/fkrinner/fkrinner/trunk/massDependentFit/scripts/bootstrap
 
 
