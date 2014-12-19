@@ -1,3 +1,4 @@
+#!/nfs/hicran/project/compass/analysis/fkrinner/Python_ultra/python_install/bin/python
 import sys
 sys.path.append('/nfs/hicran/project/compass/analysis/fkrinner/fkrinner/trunk/MassIndependentFit')
 sys.path.append('/nfs/hicran/project/compass/analysis/fkrinner/fkrinner/trunk/MassIndependentFit/cards')
@@ -144,6 +145,7 @@ def bootstrap_step(
 			wrampmode = False,	# Wrampmode, only used, if wramp-files are inclomplete. 
 			COMPENSATE_AMP	= '0',	# Compensate_amp flag in the card
 			PRINT_CMD_ONLY = False,	# Flag to print submit commends rather than executing them
+			ACUTALLY_FIT = True
 		):
 	
 	tBins = [tBin]
@@ -159,7 +161,6 @@ def bootstrap_step(
 	print "Mixing indices are:",matrix_min,matrix_max
 
 	matrix_folder  = target+'/'+name+'/matrix'
-	ACUTALLY_FIT = False
 	if startStage ==0: # Add creating the matrix files as first stage
 		if ACUTALLY_FIT: # le flage for le debuge
 			perform_PWA(
@@ -249,10 +250,10 @@ if __name__ == "__main__":
 			mMax			=	'1.54',
 			tBin			=	['0.14077','0.19435'],
 			seeds			=	['12345'],
-			startStage		=	0,
-			maxStage		=	5,
+			startStage		=	1,
+			maxStage		=	4,
 			proceedStages		=	True,
-			maxResubmit		=	7,
+			maxResubmit		=	10,
 			cleanupWramp		=	True,
 			cleanupLog		=	True,
 			cleanupFit		=	True,
@@ -269,8 +270,9 @@ if __name__ == "__main__":
 			treename 		= 	None,
 			wrampmode 		= 	False,	
 			COMPENSATE_AMP		= 	'0',
-			PRINT_CMD_ONLY		= 	False
+			PRINT_CMD_ONLY		= 	False,
+			ACUTALLY_FIT		= 	True
 	)
-	upadte_bootstrap(bootstrap_result,path_bootstrap)
+	update_bootstrap(bootstrap_result,path_bootstrap, SET_IS_WITH_MATRIX_FALSE=False)
 
 

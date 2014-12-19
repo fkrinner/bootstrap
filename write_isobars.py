@@ -3,6 +3,9 @@ import sys
 import shutil
 sys.path.append('/nfs/hicran/project/compass/analysis/fkrinner/fkrinner/trunk/massDependentFit/scripts/convertTextOutput')
 from convertTextOutput import get2D
+import numpy as np
+import numpy.linalg as la
+
 
 list_of_possible_key_waves=[
 '1-(0-+)0+ rho0mp0pP pi P                                    ',
@@ -187,7 +190,7 @@ def get_matrix_JPC(sta, sto, ca):
 					elif 'rho_' in namoi:
 						isob = 'rho_'
 					else:
-						pass
+						continue	
 #						print namoi
 #						raise Exception # No isobar 
 					JPC = [jpc,M,isob]
@@ -197,7 +200,7 @@ def get_matrix_JPC(sta, sto, ca):
 					break
 	return JPCS
 
-def update_bootstrap(direct,datadir="./data/"):
+def update_bootstrap(direct,datadir="./data/",SET_IS_WITH_MATRIX_FALSE = False):
 	"""
 	Updates the bootstrap isobars, taking data from 'direct' and updating the corresponding files in './data/'
 	Works only with one mass bin
@@ -220,13 +223,15 @@ def update_bootstrap(direct,datadir="./data/"):
 			le_card = direct+'/'+fn
 			with open(le_card,'r') as card:
 				for line in card.readlines():
-					print line
 					if "PATH_MIXING_MATRIX" in line:
 						path_mixing_matrix = line.split()[1].replace("'","").replace('"','')
 						print "Mixing matrix found"
 						IS_WITH_MATRIX = True
 						break
 			break
+	if SET_IS_WITH_MATRIX_FALSE:
+		IS_WITH_MATRIX = False
+
 	for point in data[0]:
 		if not [point[4],point[13],point[14]] in jpcs:
 			jpcs.append([point[4],point[13],point[14]])
@@ -270,34 +275,46 @@ def update_bootstrap(direct,datadir="./data/"):
 					ch_re = reall.read().split()
 					ch_im = imagg.read().split()
 					if not len(ch_re) == len(ch_im):
-						raise Exception # Number of values does not match
+						raise IndexError # Number of values does not match
 					for i in range(len(ch_re)):
 						count_index+=1
 						complex_values.append(complex(float(ch_re[i]),float(ch_im[i])))
 			index_borders.append(count_index)
+		dim = len(complex_values)
+		if not len(matrix) == dim:
+			raise IndexError # Matrix has wrong dimension
+		for i in range(dim):
+			if not len(matrix[i]) == dim:
+				raise IndexError # matrix not quadratic
+		print complex_values
 		transformed=[complex(0.,0.)]*len(complex_values)
-		pass
-		pass # do rotation here
-		pass
+		for i in range(dim):
+			for j in range(dim):
+#				matrix = invert(matrix)
+				transformed[i] += matrix[j][i]*complex_values[j]
+		print "__________________________________________________________________________________________"
+		for line in matrix:
+			print line
+
+		print "{}{}{}{}{}{}{}{}{}{}{}{}{}"
+		print transformed
 		for i in range(len(JPCS_matrix)):
 			jpc = JPCS_matrix[i]
 			name = get_bootstrap_name(jpc[0],jpc[1],jpc[2])
 			with open(datadir+'/'+name+'_re.dat','w') as reall:
-				with open(datadir+'/'+'_im.dat','w') as imagg:
+				with open(datadir+'/'+name+'_im.dat','w') as imagg:
 					for j in range(index_borders[i],index_borders[i+1]):
 						reall.write(str(transformed[j].real)+' ')
 						imagg.write(str(transformed[j].imag)+' ')
-
 	for jpc in jpcs:# copy files to the storage
 		name = get_bootstrap_name(jpc[0],jpc[1],jpc[2])
 		i=0
 		while os.path.isfile(datadir+'/'+name+'_re.dat'+str(i)):
 			i+=1
+		while os.path.isfile(datadir+'/'+name+'_im.dat'+str(i)):
+			i+=1
 		shutil.copyfile(datadir+'/'+name+'_re.dat',datadir+'/'+name+'_re.dat'+str(i))
-		j=0
-		while os.path.isfile(datadir+'/'+name+'_im.dat'+str(j)):
-			j+=1
-		shutil.copyfile(datadir+'/'+name+'_im.dat',datadir+'/'+name+'_im.dat'+str(j))
+		shutil.copyfile(datadir+'/'+name+'_im.dat',datadir+'/'+name+'_im.dat'+str(i))
 		log.write('\t./data/'+name+'_re.dat'+str(i)+'\n')
 		log.write('\t./data/'+name+'_im.dat'+str(j)+'\n')
 		print name+' bootstrap file written'
