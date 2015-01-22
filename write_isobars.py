@@ -286,18 +286,12 @@ def update_bootstrap(direct,datadir="./data/",SET_IS_WITH_MATRIX_FALSE = False):
 		for i in range(dim):
 			if not len(matrix[i]) == dim:
 				raise IndexError # matrix not quadratic
-		print complex_values
 		transformed=[complex(0.,0.)]*len(complex_values)
 		for i in range(dim):
 			for j in range(dim):
 #				matrix = invert(matrix)
 				transformed[i] += matrix[j][i]*complex_values[j]
-		print "__________________________________________________________________________________________"
-		for line in matrix:
-			print line
 
-		print "{}{}{}{}{}{}{}{}{}{}{}{}{}"
-		print transformed
 		for i in range(len(JPCS_matrix)):
 			jpc = JPCS_matrix[i]
 			name = get_bootstrap_name(jpc[0],jpc[1],jpc[2])
