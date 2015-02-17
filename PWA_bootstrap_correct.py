@@ -3,7 +3,7 @@ import sys
 sys.path.append('/nfs/hicran/project/compass/analysis/fkrinner/fkrinner/trunk/MassIndependentFit')
 sys.path.append('/nfs/hicran/project/compass/analysis/fkrinner/fkrinner/trunk/MassIndependentFit/cards')
 sys.path.append('/nfs/hicran/project/compass/analysis/fkrinner/fkrinner/trunk/massDependentFit/scripts/convertTextOutput')
-from create_bootstrap import create_bootstrap
+from create_bootstrap import create_bootstrap, bootstrapped
 from convertTextOutput import getIntegralMatrixAverage
 from de_isobarred_corrected import getData
 from PWA import perform_PWA
@@ -14,10 +14,12 @@ import os
 from multiprocessing import Process
 import pickle
 from random import randint
+import datetime
 
 """
 The name '_correct' does not mean, that its correct, but that is ocrrects the result by the unphsical modes
 """
+
 
 def bootstrap_step(
 			modestring,
@@ -51,11 +53,12 @@ def bootstrap_step(
 			PRINT_CMD_ONLY = False,	# Flag to print submit commends rather than executing them
 			ACUTALLY_FIT = True,
 			replaceMode = 'i'	):
-	
+	"""Does one whole bootstrap step"""
 	tBins = [tBin]
 
+
 	cardName1 = create_bootstrap( name,
-				modestring,
+				unu(modestring,path_bootstrap),
 				template = template,
 				bs_path = path_bootstrap,
 				cardfolder = cardfolder)
@@ -85,7 +88,7 @@ def bootstrap_step(
 		actName = name+'_'+str(ccc)
 		allNames.append(actName)
 		allCards.append(create_bootstrap( actName,
-				amString,
+				unu(amString,path_bootstrap),
 				template = template,
 				bs_path = path_bootstrap,
 				cardfolder = cardfolder))
@@ -107,7 +110,7 @@ def bootstrap_step(
 				mMax,			# Upper mass Limit
 				tBins,			# t' bins
 				seeds,			# seeds
-				startStage,	# Stage to start at
+				startStage,		# Stage to start at
 				maxStage,		# Final Stage
 				proceedStages,		# Flag to proceed after stages
 				maxResubmit,		# Number of maximum resubmits
@@ -137,6 +140,26 @@ def bootstrap_step(
 	for name in allNames:
 		results.append(target+'/'+name+'/fit/'+tBin[0]+'-'+tBin[1]+'/')
 	return results
+
+def unu(modestring, path_bootstrap):
+	"""Replace the 'u's in a modestring with 'i' or 'b'"""
+	retstring = ''
+	for i in range(len(modestring)):
+		if modestring[i] == 'u':
+			exists = False
+			nam = bootstrapped[i]
+			ld = os.listdir(path_bootstrap)
+			for fn in ld:
+				if nam in fn:
+					exists = True
+			if exists:
+				retstring += 'b'
+			else:
+				retstring += 'i'
+		else:
+			retstring += modestring[i]
+	return retstring
+	
 
 def find_text_fits(path):
 	"""Gets the folder with textoutput results. Assumes only one folder"""
@@ -182,7 +205,10 @@ def updateBootstrap(path_bootstrap,bs_name,data):
 	while True:
 		store_fn_re = file_name_re.replace('_re.dat','_re'+str(number_re)+'.dat')
 		if not os.path.isfile(store_fn_re):
-			copyfile(file_name_re,store_fn_re)
+			try:
+				copyfile(file_name_re,store_fn_re)
+			except IOError:
+				print "No file there yet",file_name_re
 			break
 		else:
 			number_re+=1
@@ -190,12 +216,15 @@ def updateBootstrap(path_bootstrap,bs_name,data):
 	while True:
 		store_fn_im = file_name_im.replace('_im.dat','_im'+str(number_im)+'.dat')
 		if not os.path.isfile(store_fn_im):
-			copyfile(file_name_im,store_fn_im)
+			try:
+				copyfile(file_name_im,store_fn_im)
+			except IOError:
+				print "No file there yet",file_name_im
 			break
 		else:
 			number_im+=1
 	with open(path_bootstrap+'/log.log','a') as log:
-		log.write("Updated: "+bs_name+", old amplitudes stored in:\n"+store_fn_re+'\n'+store_fn_im+'\n')
+		log.write(str(datetime.datetime.now())+": Updated: "+bs_name+", old amplitudes stored in:\n"+store_fn_re+'\n'+store_fn_im+'\n')
 	with open(file_name_re,'w') as out_re:
 		with open(file_name_im,'w') as out_im:
 			for val in data:
@@ -206,15 +235,15 @@ def updateBootstrap(path_bootstrap,bs_name,data):
 
 
 
-def step_bootstrap(name,path_bootstrap,modestring):
+def step_bootstrap(name,path_bootstrap,modestring,template_card,mMin,mMax,PWAbinWidth):
 
 	bootstrap_result = bootstrap_step(
 			modestring		=	modestring,
 			name			=	name,
 			path_bootstrap		=	path_bootstrap,
-			template		=	'template_bootstrap_MC.dat',
-			mMin			=	'1.50',
-			mMax			=	'1.54',
+			template		=	template_card,
+			mMin			=	mMin,
+			mMax			=	mMax,
 			tBin			=	['0.14077','0.19435'],
 			seeds			=	[str(randint(1,100000)) for i in range(10)],
 			startStage		=	1,
@@ -226,8 +255,8 @@ def step_bootstrap(name,path_bootstrap,modestring):
 			cleanupFit		=	True,
 			cleanupInt		=	True,
 			intBinWidth		=	'0.010',
-			pwaBinWidth		=	'0.040',
-			target			=	'/nfs/mds/user/fkrinner/massIndepententFits/fits/',
+			pwaBinWidth		=	PWAbinWidth,
+			target			=	'/nfs/mds/user/fkrinner/massIndepententFits/fits/bs',
 			cardfolder		=	'/nfs/hicran/project/compass/analysis/fkrinner/fkrinner/trunk/MassIndependentFit/cards',
 			intSource		=	'/nfs/nas/data/compass/hadron/2008/comSkim/MC/PS-MC/trees_for_integrals/m-bins/0.100-1.000/',
 			pwaSource		=	'/nfs/nas/data/compass/hadron/2008/comSkim/2008-binned/all/skim_2012',
@@ -239,7 +268,7 @@ def step_bootstrap(name,path_bootstrap,modestring):
 			COMPENSATE_AMP		= 	'0',
 			PRINT_CMD_ONLY		= 	False,
 			ACUTALLY_FIT		= 	True,
-			replaceMode		=	'b'
+			replaceMode		=	'u'
 	)
 	for i in range(len(bootstrap_result)):
 		bootstrap_result[i]+='/'+find_text_fits(bootstrap_result[i])
@@ -253,37 +282,79 @@ def step_bootstrap(name,path_bootstrap,modestring):
 
 #	update_bootstrap(bootstrap_result,path_bootstrap, SET_IS_WITH_MATRIX_FALSE=False)
 
+def string_n(floa, dim = 4):
+	sstr = str(floa)
+	while len(sstr) < dim:
+		sstr+='0'
+	return sstr
+
+def get_start_step(path):
+	if not os.path.isdir(path):
+		return 0
+	countFiles = 0
+	for fn in os.listdir(path):
+		if '_re' in fn and '.dat' in fn:
+			countFiles+=1
+	return max((countFiles-9)/3,0)
+	
+
+def oneBin(i,mmin,mmax,width,order):
+
+	PWAbinWidth=string_n(width)
+	mMin = string_n(mmin+i*width)
+	mMax = string_n(mmin+(i+1)*width)
+	name='bs_'+str(int(float(mMin)*1000))+'_'+str(int(float(mMax)*1000))
+	path_bootstrap = "/nfs/hicran/project/compass/analysis/fkrinner/fkrinner/trunk/massDependentFit/scripts/bootstrap/full_bootstrap/data_"+name
+
+#		template_card = 'template_bootstrap_MC.dat'
+	template_card = 'template_bootstrap.dat'
+	startStep = get_start_step(path_bootstrap)		
+#	os.system(". /nfs/hicran/project/compass/analysis/fkrinner/fkrinner/trunk/massDependentFit/scripts/bootstrap/copy_binnings.sh "+path_bootstrap)
+	CLEAR_START_FOLDER = True
+	if CLEAR_START_FOLDER: # Removes previously used stuff, just to be sure
+		os.system("rm -rfv /nfs/mds/user/fkrinner/massIndepententFits/fits/bs/"+name+'_'+str(startStep)+'*')
+	if startStep == 0:
+		os.system("mkdir "+path_bootstrap)
+		os.system(". /nfs/hicran/project/compass/analysis/fkrinner/fkrinner/trunk/massDependentFit/scripts/bootstrap/copy_start_isobars.sh "+path_bootstrap)
+	for i in range(startStep,len(release_order)):
+		step = release_order[i]
+		step_bootstrap(name+'_'+str(i),path_bootstrap,step,template_card=template_card,mMin=mMin,mMax =mMax,PWAbinWidth = PWAbinWidth)
+
+
 if __name__ == "__main__":
 	release_order = [
-				"bbddbbbbd",
-				"ddbbdbbbb",
-				"bbbbbdddb",
-				"dbdbbdbbb",
-				"bdbdbbdbb",
-				"bbbbdbbdd",
-				"bddbbbbdb",
-				"bbbdddbbb",
-				"dbbbbbdbd",
-				"bbdbdbdbb",
-				"dbbdbbbdb",
-				"bdbbbdbbd",
-				"bbddbbbbd",
-				"ddbbdbbbb",
-				"bbbbbdddb",
-				"dbdbbdbbb",
-				"bdbdbbdbb",
-				"bbbbdbbdd",
-				"bddbbbbdb",
-				"bbbdddbbb",
-				"dbbbbbdbd",
-				"bbdbdbdbb",
-				"dbbdbbbdb",
-				"bdbbbdbbd"]
+				"uudduuuud",
+				"dduuduuuu",
+				"uuuuudddu",
+				"duduuduuu",
+				"ududuuduu",
+				"uuuuduudd",
+				"udduuuudu",
+				"uuuddduuu",
+				"duuuuudud",
+				"uudududuu",
+				"duuduuudu",
+				"uduuuduud",
+				"uudduuuud",
+				"dduuduuuu",
+				"uuuuudddu",
+				"duduuduuu",
+				"ududuuduu",
+				"uuuuduudd",
+				"udduuuudu",
+				"uuuddduuu",
+				"duuuuudud",
+				"uudududuu",
+				"duuduuudu",
+				"uduuuduud"]
 
-#	name = 'PWA_bs_test_6'
-	name = 'PWA_bs_test_7'
-	path_bootstrap = '/nfs/hicran/project/compass/analysis/fkrinner/fkrinner/trunk/massDependentFit/scripts/bootstrap/data_PWA_bs_test_7'
-	i=0
-	for step in release_order:
-		step_bootstrap(name+'_'+str(i),path_bootstrap,step)
-		i+=1
+	mmin = 0.50
+	mmax = 2.50
+	width= 0.04
+
+	procs = []
+	for i in range(int((mmax-mmin)/width)):
+		proc = Process(target = oneBin, args = (i,mmin,mmax,width,release_order))
+		proc.start()
+		procs.append(proc)
+
